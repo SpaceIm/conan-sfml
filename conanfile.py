@@ -111,7 +111,7 @@ class SfmlConan(ConanFile):
         tools.rmdir(os.path.join(self.package_folder, "lib", "cmake"))
         self._create_cmake_module_alias_targets(
             os.path.join(self.package_folder, self._module_file_rel_path),
-            {target: "SFML::{}".format(values["component"]) for target, values in self._sfml_components.items()}
+            {values["target"]: "SFML::{}".format(component) for component, values in self._sfml_components.items()}
         )
 
     @staticmethod
@@ -191,23 +191,33 @@ class SfmlConan(ConanFile):
         def uikit():
             return ["UIKit"] if self.settings.os in ["iOS", "tvOS", "watchOS"] else []
 
+        suffix = "" if self.options.shared else "-s"
+        suffix += "-d" if self.settings.build_type == "Debug" else ""
+
         sfml_components = {
-            "sfml-system": {
-                "component": "system",
+            "system": {
+                "target": "sfml-system",
+                "libs": ["sfml-system{}".format(suffix)],
                 "system_libs": winmm() + pthread() + rt() + android() + log(),
             },
         }
         if self.settings.os in ["Windows", "Android", "iOS"]:
+            sfml_main_suffix = "-d" if self.settings.build_type == "Debug" else ""
+            sfmlmain_libs = ["sfml-main{}".format(sfml_main_suffix)]
+            if self.settings.os == "Android":
+                sfmlmain_libs.append("sfml-activity{}".format(suffix))
             sfml_components.update({
-                "sfml-main": {
-                    "component": "main",
+                "main": {
+                    "target": "sfml-main",
+                    "libs": sfmlmain_libs,
                     "system_libs": android() + log(),
                 },
             })
         if self.options.window:
             sfml_components.update({
-                "sfml-window": {
-                    "component": "window",
+                "window": {
+                    "target": "sfml-window",
+                    "libs": ["sfml-window{}".format(suffix)],
                     "requires": ["system", "opengl::opengl"] + xorg() + libudev(),
                     "system_libs": gdi32() + winmm() + usbhid() + android(),
                     "frameworks": foundation() + appkit() + iokit() + carbon() +
@@ -216,23 +226,26 @@ class SfmlConan(ConanFile):
             })
         if self.options.graphics:
             sfml_components.update({
-                "sfml-graphics": {
-                    "component": "graphics",
+                "graphics": {
+                    "target": "sfml-graphics",
+                    "libs": ["sfml-graphics{}".format(suffix)],
                     "requires": ["window", "freetype::freetype", "stb::stb"],
                 },
             })
         if self.options.network:
             sfml_components.update({
-                "sfml-network": {
-                    "component": "network",
+                "network": {
+                    "target": "sfml-network",
+                    "libs": ["sfml-network{}".format(suffix)],
                     "requires": ["system"],
                     "system_libs": ws2_32(),
                 },
             })
         if self.options.audio:
             sfml_components.update({
-                "sfml-audio": {
-                    "component": "audio",
+                "audio": {
+                    "target": "sfml-audio",
+                    "libs": ["sfml-audio{}".format(suffix)],
                     "requires": ["system", "flac::flac", "ogg::ogg",
                                  "openal::openal", "vorbis::vorbis"],
                     "system_libs": android(),
@@ -247,21 +260,20 @@ class SfmlConan(ConanFile):
         self.cpp_info.names["pkgconfig"] = "sfml-all"
 
         def _register_components(components):
-            suffix = "" if self.options.shared else "-s"
-            suffix += "-d" if self.settings.build_type == "Debug" else ""
             defines = [] if self.options.shared else ["SFML_STATIC"]
-            for pkgconfig_lib_name, values in components.items():
-                component = values.get("component", [])
+            for component, values in components.items():
+                target = values.get("target", [])
+                libs = values.get("libs", [])
                 requires = values.get("requires", [])
                 system_libs = values.get("system_libs", [])
                 frameworks = values.get("frameworks", [])
                 self.cpp_info.components[component].names["cmake_find_package"] = component
                 self.cpp_info.components[component].names["cmake_find_package_multi"] = component
-                self.cpp_info.components[component].names["pkg_config"] = pkgconfig_lib_name
+                self.cpp_info.components[component].names["pkg_config"] = target
                 self.cpp_info.components[component].builddirs.append(self._module_subfolder)
                 self.cpp_info.components[component].build_modules["cmake_find_package"] = [self._module_file_rel_path]
                 self.cpp_info.components[component].build_modules["cmake_find_package_multi"] = [self._module_file_rel_path]
-                self.cpp_info.components[component].libs = [pkgconfig_lib_name + suffix]
+                self.cpp_info.components[component].libs = libs
                 self.cpp_info.components[component].defines = defines
                 self.cpp_info.components[component].requires = requires
                 self.cpp_info.components[component].system_libs = system_libs
