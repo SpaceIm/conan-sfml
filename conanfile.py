@@ -64,7 +64,6 @@ class SfmlConan(ConanFile):
             self.requires("stb/cci.20210713")
         if self.options.audio:
             self.requires("flac/1.3.3")
-            self.requires("ogg/1.3.4")
             self.requires("openal/1.21.1")
             self.requires("vorbis/1.3.7")
 
@@ -246,8 +245,7 @@ class SfmlConan(ConanFile):
                 "audio": {
                     "target": "sfml-audio",
                     "libs": ["sfml-audio{}".format(suffix)],
-                    "requires": ["system", "flac::flac", "ogg::ogg",
-                                 "openal::openal", "vorbis::vorbis"],
+                    "requires": ["system", "flac::flac", "openal::openal", "vorbis::vorbis"],
                     "system_libs": android(),
                 },
             })
