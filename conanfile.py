@@ -57,9 +57,8 @@ class SfmlConan(ConanFile):
             if self.settings.os in ["Windows", "Linux", "FreeBSD", "Macos"]:
                 self.requires("opengl/system")
             if self.settings.os == "Linux":
+                self.requires("libudev/system")
                 self.requires("xorg/system")
-                # TODO: add libudev recipe instead of system requirements
-                # self.requires("libudev/xxx")
         if self.options.graphics:
             self.requires("freetype/2.10.4")
             self.requires("stb/cci.20210713")
@@ -68,35 +67,11 @@ class SfmlConan(ConanFile):
             self.requires("openal/1.21.1")
             self.requires("vorbis/1.3.7")
 
-    @property
-    def _settings_build(self):
-        return getattr(self, "settings_build", self.settings)
-
     def validate(self):
         if self.settings.os not in ["Windows", "Linux", "FreeBSD", "Android", "Macos", "iOS"]:
             raise ConanInvalidConfiguration("SFML not supported on {}".format(self.settings.os))
         if self.options.graphics and not self.options.window:
             raise ConanInvalidConfiguration("sfml:graphics=True requires sfml:window=True")
-        if self.settings.os == "Linux" and self._settings_build.os != "Linux":
-            raise ConanInvalidConfiguration("sfml can't be cross-buit yet to Linux from a non-Linux machine")
-
-    def system_requirements(self):
-        if self.settings.os == "Linux" and self._settings_build.os == "Linux":
-            package_tool = tools.SystemPackageTool(conanfile=self)
-            libudev_name = ""
-            os_info = tools.OSInfo()
-            if os_info.with_apt:
-                libudev_name = "libudev-dev"
-            elif os_info.with_yum:
-                libudev_name = "libudev-devel"
-            elif os_info.with_zypper:
-                libudev_name = "libudev-devel"
-            elif os_info.with_pacman:
-                libudev_name = "libsystemd systemd"
-            else:
-                self.output.warn("Could not install libudev: Undefined package name for current platform.")
-                return
-            package_tool.install(packages=libudev_name, update=True)
 
     def source(self):
         tools.get(**self.conan_data["sources"][self.version],
@@ -169,7 +144,7 @@ class SfmlConan(ConanFile):
             return ["ws2_32"] if self.settings.os == "Windows" else []
 
         def libudev():
-            return ["udev"] if self.settings.os == "Linux" else []
+            return ["libudev::libudev"] if self.settings.os == "Linux" else []
 
         def xorg():
             return ["xorg::xorg"] if self.settings.os == "Linux" else []
@@ -249,8 +224,8 @@ class SfmlConan(ConanFile):
                 "window": {
                     "target": "sfml-window",
                     "libs": ["sfml-window{}".format(suffix)],
-                    "requires": ["system"] + opengl() + xorg(),
-                    "system_libs": gdi32() + winmm() + libudev() + usbhid() + android() + opengles_android(),
+                    "requires": ["system"] + opengl() + xorg() + libudev(),
+                    "system_libs": gdi32() + winmm() + usbhid() + android() + opengles_android(),
                     "frameworks": foundation() + appkit() + iokit() + carbon() +
                                   uikit() + coregraphics() + quartzcore() +
                                   coremotion() + opengles_ios(),
